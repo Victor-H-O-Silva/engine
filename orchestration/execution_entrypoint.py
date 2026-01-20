@@ -58,11 +58,7 @@ def run_execution(payload: Any) -> Dict[str, Any]:
         end_ts_excl=datetime.fromisoformat(req.window_end_utc),
     )
 
-    selected = select_pipelines(
-        pipelines=req.pipelines,
-        tags=req.tags,
-    )
-
+    selected = select_pipelines(pipelines=req.pipelines, tags=req.tags)
     ordered = resolve_dependencies(selected, req.depends_on) if req.depends_on else selected
 
     results = []
@@ -74,46 +70,49 @@ def run_execution(payload: Any) -> Dict[str, Any]:
         for p in ordered:
             total += 1
 
-        exec_out = execute_pipelines(
-            pipelines=[p],
-            env=req.env,
-            mode=req.mode,
-            window_start_utc=chunk["start_ts"].isoformat(),
-            window_end_utc=chunk["end_ts_excl"].isoformat(),
-            params_json=json.dumps(req.params or {}),
-            trigger_json=json.dumps(req.trigger or {}),
-            attempt=req.attempt,
-            allow_destructive=req.allow_destructive,
-            dry_run=req.dry_run,
-        )
-
-        raw_results.append(exec_out)
-        r = exec_out["results"][0]
-
-        status = r["status"]
-        if status == "SUCCESS":
-            succeeded += 1
-        elif status == "FAILED_PRECONDITION":
-            failed_precondition += 1
-            failed += 1
-        else:
-            failed += 1
-
-        results.append(
-            PipelineExecutionResult(
-                pipeline_name=r["pipeline_name"],
-                status=status,
-                run_id=r["run_id"],
-                attempt=r["attempt"],
-                intent_hash=r["intent_hash"],
-                started_ts_utc=r["started_ts_utc"],
-                finished_ts_utc=r["finished_ts_utc"],
-                error_message=r.get("error_message"),
-                error_class=r.get("error_class"),
+            exec_out = execute_pipelines(
+                pipelines=[p],
+                env=req.env,
+                mode=req.mode,
+                window_start_utc=chunk["start_ts"].isoformat(),
+                window_end_utc=chunk["end_ts_excl"].isoformat(),
+                params_json=json.dumps(req.params or {}),
+                trigger_json=json.dumps(req.trigger or {}),
+                attempt=req.attempt,
+                allow_destructive=req.allow_destructive,
+                dry_run=req.dry_run,
             )
-        )
 
-        if should_stop_execution(req.failure_policy, status):
+            raw_results.append(exec_out)
+            r = exec_out["results"][0]
+
+            status = r["status"]
+            if status == "SUCCESS":
+                succeeded += 1
+            elif status == "FAILED_PRECONDITION":
+                failed_precondition += 1
+                failed += 1
+            else:
+                failed += 1
+
+            results.append(
+                PipelineExecutionResult(
+                    pipeline_name=r["pipeline_name"],
+                    status=status,
+                    run_id=r["run_id"],
+                    attempt=r["attempt"],
+                    intent_hash=r["intent_hash"],
+                    started_ts_utc=r["started_ts_utc"],
+                    finished_ts_utc=r["finished_ts_utc"],
+                    error_message=r.get("error_message"),
+                    error_class=r.get("error_class"),
+                )
+            )
+
+            if should_stop_execution(req.failure_policy, status):
+                break
+
+        if should_stop_execution(req.failure_policy, "FAILED" if failed else "SUCCESS") and failed:
             break
 
     finished = _utc_now()
