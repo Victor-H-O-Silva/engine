@@ -283,6 +283,8 @@ def build_run_context(args: Mapping[str, Any], cfg: Optional[ContractConfig] = N
     pipeline_name = _canonicalize_pipeline_name(str(a.get("pipeline_name") or ""))
 
     mode_raw = str(a.get("mode") or "").strip().lower()
+    if mode_raw == "":
+        mode_raw = ExecutionMode.INCREMENTAL.value
     mode = ExecutionMode(mode_raw)
 
     run_ts_raw = a.get("run_ts_utc")

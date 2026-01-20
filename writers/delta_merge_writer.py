@@ -87,21 +87,19 @@ class DeltaMergeWriter:
         cond = " AND ".join([f"t.`{c}` <=> s.`{c}`" for c in key_cols])
 
         m = tgt.merge(src, cond)
-
+        
         if soft_delete:
-            if soft_delete_col not in staged.columns:
-                raise PreconditionFailed(f"soft_delete=True requires column {soft_delete_col}")
+            if soft_delete_col not in staged.columns: raise PreconditionFailed(f"soft_delete=True requires column {soft_delete_col}")
             m = m.whenMatchedUpdateAll(condition=f"s.`{soft_delete_col}` = false")
             m = m.whenMatchedUpdate(
                 condition=f"s.`{soft_delete_col}` = true",
                 set={soft_delete_col: F.lit(True)},
             )
+            if insert_all_when_not_matched:
+                m = m.whenNotMatchedInsertAll(condition=f"s.`{soft_delete_col}` = false")
         else:
-            if update_all_when_matched:
-                m = m.whenMatchedUpdateAll()
-
-        if insert_all_when_not_matched:
-            m = m.whenNotMatchedInsertAll()
+            if update_all_when_matched: m = m.whenMatchedUpdateAll()
+            if insert_all_when_not_matched: m = m.whenNotMatchedInsertAll()
 
         m.execute()
 

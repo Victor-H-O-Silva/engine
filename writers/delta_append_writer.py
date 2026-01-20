@@ -45,6 +45,23 @@ class DeltaAppendWriter:
         for k, v in tags.items():
             staged = staged.withColumn(k, F.lit(v))
 
+        if rc.dry_run:
+            return WriterResult(
+                strategy="APPEND",
+                target=target.fqn,
+                created_table=False,
+                rows_written=None,
+                rows_inserted=None,
+                rows_updated=None,
+                rows_deleted=None,
+                output_metadata={
+                    "partition_cols": list(partition_cols) if partition_cols else None,
+                    "dedup_key_cols": list(dedup_key_cols) if dedup_key_cols else None,
+                    "dedup_predicate_sql": dedup_predicate_sql,
+                    "dry_run": True,
+                },
+            )
+            
         created = _create_table_if_missing(
             self._spark,
             staged,
