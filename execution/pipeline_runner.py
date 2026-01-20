@@ -217,15 +217,6 @@ class PipelineRunner:
             finished = _now_utc()
 
             if self._state_store is not None:
-                self._state_store.record_run_end(
-                    pipeline_name=rc.pipeline_name,
-                    run_id=rc.run_id,
-                    status="SUCCESS",
-                    metrics=metrics,
-                    error=None,
-                    ended_at=finished,
-                )
-
                 if (
                     self._commit_watermark_on_success
                     and (not rc.dry_run)
@@ -238,6 +229,15 @@ class PipelineRunner:
                         watermark_ts=rc.window_end_utc,
                         run_id=rc.run_id,
                     )
+
+                self._state_store.record_run_end(
+                    pipeline_name=rc.pipeline_name,
+                    run_id=rc.run_id,
+                    status="SUCCESS",
+                    metrics=metrics,
+                    error=None,
+                    ended_at=finished,
+                )
 
             return RunnerResult(
                 status="SUCCESS",
