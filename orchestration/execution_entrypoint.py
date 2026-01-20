@@ -51,11 +51,26 @@ def run_execution(payload: Any) -> Dict[str, Any]:
     )
 
     controls = parse_performance_controls(req.params or {})
+    
+    def _as_bool(v: Any) -> bool:
+        if isinstance(v, bool):
+            return v
+        s = str(v).strip().lower()
+        return s in ("1", "true", "yes", "y")
+    
+    def _parse_iso(s: str) -> datetime:
+        t = str(s).strip()
+        if t.endswith("Z"):
+            t = t[:-1] + "+00:00"
+        dt = datetime.fromisoformat(t)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc)
 
     chunks = controller.compute_window_chunks(
         controls=controls,
-        start_ts=datetime.fromisoformat(req.window_start_utc),
-        end_ts_excl=datetime.fromisoformat(req.window_end_utc),
+        start_ts=_parse_iso(req.window_start_utc),
+        end_ts_excl=_parse_iso(req.window_end_utc),
     )
 
     selected = select_pipelines(pipelines=req.pipelines, tags=req.tags)
@@ -79,8 +94,9 @@ def run_execution(payload: Any) -> Dict[str, Any]:
                 params_json=json.dumps(req.params or {}),
                 trigger_json=json.dumps(req.trigger or {}),
                 attempt=req.attempt,
-                allow_destructive=req.allow_destructive,
-                dry_run=req.dry_run,
+                allow_destructive=_as_bool(req.allow_destructive),
+                dry_run=_as_bool(req.dry_run),
+                pipeline_params_json=json.dumps(req.pipeline_params or {}),
             )
 
             raw_results.append(exec_out)

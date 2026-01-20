@@ -63,7 +63,12 @@ class PipelineRunner:
         last = metrics.get("_last_heartbeat_ts_utc")
         if last is not None:
             try:
-                last_dt = datetime.fromisoformat(str(last))
+                s = str(last)
+                if s.endswith("Z"):
+                    s = s[:-1] + "+00:00"
+                last_dt = datetime.fromisoformat(s)
+                if last_dt.tzinfo is None:
+                    last_dt = last_dt.replace(tzinfo=timezone.utc)
                 elapsed = (now - last_dt).total_seconds()
                 if elapsed < hb_seconds:
                     return
@@ -152,10 +157,10 @@ class PipelineRunner:
                         error_class="LockNotAcquired",
                     )
 
+            if self._state_store is not None:
                 actor = None
                 if isinstance(rc.trigger, dict):
                     actor = rc.trigger.get("actor") or rc.trigger.get("creator_user_name") or rc.trigger.get("run_as")
-
                 self._state_store.record_run_start(
                     pipeline_name=rc.pipeline_name,
                     run_id=rc.run_id,

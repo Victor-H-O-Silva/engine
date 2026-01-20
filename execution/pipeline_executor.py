@@ -114,23 +114,26 @@ def execute_pipelines(
     if not isinstance(tblprops, dict):
         raise ValueError("state_table_properties_json must decode to a JSON object mapping string->string")
 
-    state_store = None
-    if state_enabled:
-        spark = SparkSession.getActiveSession()
-        if spark is None:
-            spark = SparkSession.builder.getOrCreate()
+    def _as_bool(v: Any) -> bool:
+        if isinstance(v, bool):
+            return v
+        s = str(v).strip().lower()
+        return s in ("1", "true", "yes", "y")
 
-        tables = state_tables(catalog=state_catalog, schema=state_schema)
-        controller = PerformanceController(
-            spark=spark,
-            run_history_table_fqn=tables.run_history,
-        )
-        
+    spark = SparkSession.getActiveSession()
+    if spark is None:
+        spark = SparkSession.builder.getOrCreate()
+
+    tables = state_tables(catalog=state_catalog, schema=state_schema)
+    controller = PerformanceController(spark=spark, run_history_table_fqn=tables.run_history)
+
+    state_store = None
+    if _as_bool(state_enabled):
         state_store = StateStore(
             spark=spark,
             tables=tables,
             table_properties={str(k): str(v) for k, v in tblprops.items()},
-            allow_schema_create=bool(state_allow_schema_create),
+            allow_schema_create=_as_bool(state_allow_schema_create),
         )
 
     started = _now_utc()
@@ -148,7 +151,8 @@ def execute_pipelines(
     for p in pipeline_list:
         per_started = _now_utc()
         try:
-            pp = per_pipeline_params_map.get(p)
+            p_key = str(p).strip().lower()
+            pp = per_pipeline_params_map.get(p) if p in per_pipeline_params_map else per_pipeline_params_map.get(p_key)
             if pp is not None and not isinstance(pp, dict):
                 raise ValueError("pipeline_params_json must map each pipeline_name to a JSON object")
 
@@ -157,7 +161,7 @@ def execute_pipelines(
                 "run_id": str(uuid.uuid4()),
                 "attempt": str(attempt_val),
                 "env": env,
-                "pipeline_name": p,
+                "pipeline_name": p_key,
                 "mode": mode,
                 "window_start_utc": window_start_utc,
                 "window_end_utc": window_end_utc,

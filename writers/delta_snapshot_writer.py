@@ -58,6 +58,22 @@ class DeltaSnapshotWriter:
         for k, v in tags.items():
             staged = staged.withColumn(k, F.lit(v))
 
+        if rc.dry_run:
+            return WriterResult(
+                strategy="SNAPSHOT",
+                target=target.fqn,
+                created_table=False,
+                rows_written=None,
+                rows_inserted=None,
+                rows_updated=None,
+                rows_deleted=None,
+                output_metadata={
+                    "replace_where": replace_where,
+                    "partition_cols": list(partition_cols) if partition_cols else None,
+                    "dry_run": True,
+                },
+            )
+            
         created = _create_table_if_missing(
             self._spark,
             staged,

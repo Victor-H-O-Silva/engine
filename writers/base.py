@@ -17,15 +17,11 @@ def _table_exists(spark: SparkSession, target_fqn: str) -> bool:
 
     rows = spark.sql(
         f"""
-        SELECT 1
-        FROM system.information_schema.tables
-        WHERE table_catalog = '{c}'
-          AND table_schema  = '{s}'
-          AND table_name    = '{t}'
+        SELECT 1 FROM {c}.information_schema.tables
+        WHERE table_schema = '{s}' AND table_name = '{t}'
         LIMIT 1
         """
     ).collect()
-
     return len(rows) > 0
 
 
